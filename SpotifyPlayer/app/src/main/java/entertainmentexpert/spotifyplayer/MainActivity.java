@@ -1,14 +1,13 @@
 package entertainmentexpert.spotifyplayer;
 
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
 import com.spotify.sdk.android.authentication.AuthenticationClient;
 import com.spotify.sdk.android.authentication.AuthenticationRequest;
 import com.spotify.sdk.android.authentication.AuthenticationResponse;
-import com.spotify.sdk.android.player.Config;
 import com.spotify.sdk.android.player.ConnectionStateCallback;
 import com.spotify.sdk.android.player.Error;
 import com.spotify.sdk.android.player.Player;
@@ -16,14 +15,18 @@ import com.spotify.sdk.android.player.PlayerEvent;
 import com.spotify.sdk.android.player.Spotify;
 import com.spotify.sdk.android.player.SpotifyPlayer;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import kaaes.spotify.webapi.android.SpotifyApi;
+import kaaes.spotify.webapi.android.SpotifyError;
 import kaaes.spotify.webapi.android.SpotifyService;
 import kaaes.spotify.webapi.android.models.Album;
 import kaaes.spotify.webapi.android.models.Pager;
+import kaaes.spotify.webapi.android.models.Playlist;
 import kaaes.spotify.webapi.android.models.PlaylistSimple;
-import kaaes.spotify.webapi.android.models.PlaylistTracksInformation;
+import kaaes.spotify.webapi.android.models.PlaylistTrack;
+import kaaes.spotify.webapi.android.models.UserPrivate;
 import retrofit.Callback;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
@@ -32,8 +35,10 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
     private static final String CLIENT_ID = "617b892859ab4b148161cf0e5335b74e";
     private static final String REDIRECT_URI = "entertainmentexpert.spotifyplayer://callback";
-    private Player mPlayer;
     private static final int REQUEST_CODE = 1337;
+    private List<PlaylistSimple> playList;
+    private Player mPlayer;
+    private UserPrivate user;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,41 +62,24 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
         if (requestCode == REQUEST_CODE) {
             AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, intent);
             if (response.getType() == AuthenticationResponse.Type.TOKEN) {
-
                 SpotifyApi api = new SpotifyApi();
-
-
                 api.setAccessToken(response.getAccessToken());
 
                 SpotifyService spotify = api.getService();
+                Log.d("Token", response.getAccessToken());
+                try {
+                    user = GetUserInfo(spotify);
+                    Pager<PlaylistSimple> playListCollection = GetPlayList(spotify);
+                    playList = playListCollection.items;
+                    GetPlayListTrack(user.id, playList.get(0).id, spotify);
+                } catch (RetrofitError ex) {
 
-                spotify.getMyPlaylists(new Callback<Pager<PlaylistSimple>>() {
-                    @Override
-                    public void success(Pager<PlaylistSimple> playlistSimplePager, Response response) {
-                      List<PlaylistSimple> playList= playlistSimplePager.items;
+                    SpotifyError spotifyError = SpotifyError.fromRetrofitError(ex);
+                } catch (Exception ex) {
+                    Log.d("Exception", ex.getStackTrace().toString());
+                }
 
-                        playList.
-                        for (int i=0;i<=playList.size();i++) {
-                          PlaylistTracksInformation  tracks= playList.get(i).tracks;
-                        }
-                    }
 
-                    @Override
-                    public void failure(RetrofitError error) {
-
-                    }
-                });
-                spotify.getAlbum("2dIGnmEIy1WZIcZCFSj6i8", new Callback<Album>() {
-                    @Override
-                    public void success(Album album, Response response) {
-                        Log.d("Album success", album.name);
-                    }
-
-                    @Override
-                    public void failure(RetrofitError error) {
-                        Log.d("Album failure", error.toString());
-                    }
-                });
                 /*
                 Config playerConfig = new Config(this, response.getAccessToken(), CLIENT_ID);
                 Spotify.getPlayer(playerConfig, this, new SpotifyPlayer.InitializationObserver() {
@@ -111,6 +99,34 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
             }
         }
 
+    }
+
+    private Pager<PlaylistTrack> GetPlayListTrack(String userId, String playListId, SpotifyService service) {
+
+        try {
+            return service.getPlaylistTracks(userId, playListId);
+        } catch (RetrofitError error) {
+            Log.d("Get playlist tracks", error.getMessage());
+            throw error;
+        }
+    }
+
+    private UserPrivate GetUserInfo(SpotifyService service) {
+        try {
+            return service.getMe();
+        } catch (RetrofitError error) {
+            Log.d("Get User Info", error.getMessage());
+            throw error;
+        }
+    }
+
+    private Pager<PlaylistSimple> GetPlayList(SpotifyService service) {
+        try {
+            return service.getMyPlaylists();
+        } catch (RetrofitError error) {
+            Log.d("Get PlayLists", error.getMessage());
+            throw error;
+        }
     }
 
     @Override
