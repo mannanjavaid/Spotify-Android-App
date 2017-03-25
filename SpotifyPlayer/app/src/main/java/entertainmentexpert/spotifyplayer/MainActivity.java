@@ -8,25 +8,26 @@ import android.util.Log;
 import com.spotify.sdk.android.authentication.AuthenticationClient;
 import com.spotify.sdk.android.authentication.AuthenticationRequest;
 import com.spotify.sdk.android.authentication.AuthenticationResponse;
+import com.spotify.sdk.android.player.Config;
 import com.spotify.sdk.android.player.ConnectionStateCallback;
 import com.spotify.sdk.android.player.Error;
+import com.spotify.sdk.android.player.PlaybackBitrate;
 import com.spotify.sdk.android.player.Player;
 import com.spotify.sdk.android.player.PlayerEvent;
 import com.spotify.sdk.android.player.Spotify;
 import com.spotify.sdk.android.player.SpotifyPlayer;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import kaaes.spotify.webapi.android.SpotifyApi;
+import kaaes.spotify.webapi.android.SpotifyCallback;
 import kaaes.spotify.webapi.android.SpotifyError;
 import kaaes.spotify.webapi.android.SpotifyService;
-import kaaes.spotify.webapi.android.models.Album;
 import kaaes.spotify.webapi.android.models.Pager;
-import kaaes.spotify.webapi.android.models.Playlist;
 import kaaes.spotify.webapi.android.models.PlaylistSimple;
 import kaaes.spotify.webapi.android.models.PlaylistTrack;
-import kaaes.spotify.webapi.android.models.UserPrivate;
+import kaaes.spotify.webapi.android.models.UserPublic;
 import retrofit.Callback;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
@@ -38,19 +39,19 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
     private static final int REQUEST_CODE = 1337;
     private List<PlaylistSimple> playList;
     private Player mPlayer;
-    private UserPrivate user;
+    private UserPublic user;
+    private SpotifyService webService;
+    private String userId = "pespotify1";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         AuthenticationRequest.Builder builder = new AuthenticationRequest.Builder(CLIENT_ID,
                 AuthenticationResponse.Type.TOKEN,
                 REDIRECT_URI);
         builder.setScopes(new String[]{"user-read-private", "streaming"});
         AuthenticationRequest request = builder.build();
-
         AuthenticationClient.openLoginActivity(this, REQUEST_CODE, request);
     }
 
@@ -62,105 +63,90 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
         if (requestCode == REQUEST_CODE) {
             AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, intent);
             if (response.getType() == AuthenticationResponse.Type.TOKEN) {
+                CreatePlayer(response.getAccessToken());
                 SpotifyApi api = new SpotifyApi();
                 api.setAccessToken(response.getAccessToken());
+                webService = api.getService();
 
-                SpotifyService spotify = api.getService();
-                Log.d("Token", response.getAccessToken());
-                try {
-                    user = GetUserInfo(spotify);
-                    Pager<PlaylistSimple> playListCollection = GetPlayList(spotify);
-                    playList = playListCollection.items;
-                    GetPlayListTrack(user.id, playList.get(0).id, spotify);
-                } catch (RetrofitError ex) {
-
-                    SpotifyError spotifyError = SpotifyError.fromRetrofitError(ex);
-                } catch (Exception ex) {
-                    Log.d("Exception", ex.getStackTrace().toString());
-                }
-
-
-                /*
-                Config playerConfig = new Config(this, response.getAccessToken(), CLIENT_ID);
-                Spotify.getPlayer(playerConfig, this, new SpotifyPlayer.InitializationObserver() {
-                    @Override
-                    public void onInitialized(SpotifyPlayer spotifyPlayer) {
-                        mPlayer = spotifyPlayer;
-                        mPlayer.addConnectionStateCallback(MainActivity.this);
-                        mPlayer.addNotificationCallback(MainActivity.this);
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                        Log.e("MainActivity", "Could not initialize player: " + throwable.getMessage());
-                    }
-                });
-                */
             }
         }
 
     }
 
-    private Pager<PlaylistTrack> GetPlayListTrack(String userId, String playListId, SpotifyService service) {
 
-        try {
-            return service.getPlaylistTracks(userId, playListId);
-        } catch (RetrofitError error) {
-            Log.d("Get playlist tracks", error.getMessage());
-            throw error;
-        }
-    }
+    private void Play(PlaylistSimple playlist) {
 
-    private UserPrivate GetUserInfo(SpotifyService service) {
-        try {
-            return service.getMe();
-        } catch (RetrofitError error) {
-            Log.d("Get User Info", error.getMessage());
-            throw error;
-        }
-    }
+        webService.getPlaylistTracks(userId, playlist.id, new Callback<Pager<PlaylistTrack>>() {
+            @Override
+            public void success(Pager<PlaylistTrack> playlistTrackPager, Response response) {
+                List<PlaylistTrack> list = playlistTrackPager.items;
+                Collections.shuffle(list);
+                int count = 0;
+                for (PlaylistTrack track : list) {
+                    if (count == 0) {
+                        mPlayer.playUri(null, track.track.uri, 0, 0);
+                        mPlayer.setPlaybackBitrate(null, PlaybackBitrate.BITRATE_HIGH);
+                    } else {
+                        mPlayer.queue(null, track.track.uri);
+                    }
+                    count++;
+                    Log.d("track", "");
+                }
 
-    private Pager<PlaylistSimple> GetPlayList(SpotifyService service) {
-        try {
-            return service.getMyPlaylists();
-        } catch (RetrofitError error) {
-            Log.d("Get PlayLists", error.getMessage());
-            throw error;
-        }
-    }
+            }
 
-    @Override
-    protected void onDestroy() {
-        Spotify.destroyPlayer(this);
-        super.onDestroy();
+            @Override
+            public void failure(RetrofitError error) {
+
+            }
+        });
+
+
     }
 
 
-    @Override
-    public void onPlaybackEvent(PlayerEvent playerEvent) {
-        Log.d("MainActivity", "Playback event received: " + playerEvent.name());
-        switch (playerEvent) {
-            // Handle event type as necessary
-            default:
-                break;
-        }
+
+
+
+
+    private void getUserInfo(SpotifyService service) {
+        service.getUser(userId, new Callback<UserPublic>() {
+            @Override
+            public void success(UserPublic userPublic, Response response) {
+                user = userPublic;
+            }
+
+            @Override
+            public void failure(RetrofitError error) {
+                Log.d("Get User Info", error.getMessage());
+            }
+        });
+
     }
 
-    @Override
-    public void onPlaybackError(Error error) {
-        Log.d("MainActivity", "Playback error received: " + error.name());
-        switch (error) {
-            // Handle error type as necessary
-            default:
-                break;
-        }
+    private void getPlayList(SpotifyService service) {
+
+        service.getPlaylists(userId, new SpotifyCallback<Pager<PlaylistSimple>>() {
+            @Override
+            public void failure(SpotifyError spotifyError) {
+                Log.d("Get PlayLists", spotifyError.getMessage());
+            }
+
+            @Override
+            public void success(Pager<PlaylistSimple> playlistSimplePager, Response response) {
+                playList = playlistSimplePager.items;
+                Play(playList.get(0));
+            }
+        });
+
     }
+
+
 
     @Override
     public void onLoggedIn() {
-        Log.d("MainActivity", "User logged in");
-
-        mPlayer.playUri(null, "spotify:track:2TpxZ7JUBn3uw46aR7qd6V", 0, 0);
+       // getUserInfo(webService);
+        getPlayList(webService);
     }
 
     @Override
@@ -181,5 +167,49 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
     @Override
     public void onConnectionMessage(String message) {
         Log.d("MainActivity", "Received connection message: " + message);
+    }
+
+    @Override
+    protected void onDestroy() {
+        Spotify.destroyPlayer(this);
+        super.onDestroy();
+    }
+
+    @Override
+    public void onPlaybackEvent(PlayerEvent playerEvent) {
+        Log.d("MainActivity", "Playback event received: " + playerEvent.name());
+
+        switch (playerEvent) {
+
+            default:
+                break;
+        }
+    }
+
+    @Override
+    public void onPlaybackError(Error error) {
+        Log.d("MainActivity", "Playback error received: " + error.name());
+        switch (error) {
+            // Handle error type as necessary
+            default:
+                break;
+        }
+    }
+
+    private void CreatePlayer(String accessToken) {
+        Config playerConfig = new Config(this, accessToken, CLIENT_ID);
+        Spotify.getPlayer(playerConfig, this, new SpotifyPlayer.InitializationObserver() {
+            @Override
+            public void onInitialized(SpotifyPlayer spotifyPlayer) {
+                spotifyPlayer.addConnectionStateCallback(MainActivity.this);
+                spotifyPlayer.addNotificationCallback(MainActivity.this);
+                mPlayer = spotifyPlayer;
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                Log.e("MainActivity", "Could not initialize player: " + throwable.getMessage());
+            }
+        });
     }
 }
