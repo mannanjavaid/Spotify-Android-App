@@ -5,9 +5,8 @@ android {
     buildToolsVersion "25.0.2"
     defaultConfig {
         applicationId "entertainmentexpert.spotifyplayer"
-        minSdkVersion 15
+        minSdkVersion 19
         targetSdkVersion 25
-        versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -34,9 +33,10 @@ dependencies {
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
 
     // This library handles authentication and authorization
-    compile 'com.spotify.sdk:spotify-android-auth-1.0.0@aar'
+    // compile 'com.spotify.sdk:spotify-android-auth-1.0.0@aar'
     // This library handles music playback
     compile 'com.spotify.sdk:spotify-player-24-noconnect-2.20b@aar'
     compile 'com.github.kaaes:spotify-web-api-android:0.4.1'
+    compile 'com.spotify.sdk:auth@aar'
     testCompile 'junit:junit:4.12'
 }

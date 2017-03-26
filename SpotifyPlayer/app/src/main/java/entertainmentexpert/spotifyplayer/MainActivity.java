@@ -11,7 +11,6 @@ import com.spotify.sdk.android.authentication.AuthenticationResponse;
 import com.spotify.sdk.android.player.Config;
 import com.spotify.sdk.android.player.ConnectionStateCallback;
 import com.spotify.sdk.android.player.Error;
-import com.spotify.sdk.android.player.PlaybackBitrate;
 import com.spotify.sdk.android.player.Player;
 import com.spotify.sdk.android.player.PlayerEvent;
 import com.spotify.sdk.android.player.Spotify;
@@ -42,17 +41,23 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
     private UserPublic user;
     private SpotifyService webService;
     private String userId = "pespotify1";
+    private boolean IsFirstTrack;
+    private List<PlaylistTrack> list;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
         AuthenticationRequest.Builder builder = new AuthenticationRequest.Builder(CLIENT_ID,
                 AuthenticationResponse.Type.TOKEN,
                 REDIRECT_URI);
         builder.setScopes(new String[]{"user-read-private", "streaming"});
         AuthenticationRequest request = builder.build();
+
         AuthenticationClient.openLoginActivity(this, REQUEST_CODE, request);
+
     }
 
     @Override
@@ -75,24 +80,37 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
 
     private void Play(PlaylistSimple playlist) {
+        IsFirstTrack = true;
+        //  int count=  playlist.tracks.total;
+        //    mPlayer.playUri(null, playlist.uri, 0, 0);
+        //     mPlayer.setRepeat(null, true);
+        //    mPlayer.setShuffle(null, true);
+        // mPlayer.skipToNext(null);
+
 
         webService.getPlaylistTracks(userId, playlist.id, new Callback<Pager<PlaylistTrack>>() {
             @Override
             public void success(Pager<PlaylistTrack> playlistTrackPager, Response response) {
-                List<PlaylistTrack> list = playlistTrackPager.items;
+                list = playlistTrackPager.items;
                 Collections.shuffle(list);
+
+                mPlayer.playUri(null, list.get(0).track.uri, 0, 0);
+                list.remove(0);
+                /*
                 int count = 0;
                 for (PlaylistTrack track : list) {
                     if (count == 0) {
                         mPlayer.playUri(null, track.track.uri, 0, 0);
-                        mPlayer.setPlaybackBitrate(null, PlaybackBitrate.BITRATE_HIGH);
+
                     } else {
                         mPlayer.queue(null, track.track.uri);
+                        mPlayer.setPlaybackBitrate(null, PlaybackBitrate.BITRATE_HIGH);
                     }
                     count++;
                     Log.d("track", "");
-                }
 
+                }
+*/
             }
 
             @Override
@@ -103,10 +121,6 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
 
     }
-
-
-
-
 
 
     private void getUserInfo(SpotifyService service) {
@@ -142,10 +156,8 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
     }
 
 
-
     @Override
     public void onLoggedIn() {
-       // getUserInfo(webService);
         getPlayList(webService);
     }
 
@@ -180,6 +192,16 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
         Log.d("MainActivity", "Playback event received: " + playerEvent.name());
 
         switch (playerEvent) {
+            case kSpPlaybackNotifyAudioDeliveryDone:
+                // if (!IsFirstTrack && !mPlayer.getPlaybackState().isPlaying) {
+                if (list.size() > 0) {
+                    mPlayer.playUri(null, list.get(0).track.uri, 0, 0);
+
+                    list.remove(0);
+                }
+                //    }else {
+                //      IsFirstTrack = false;
+                //    }
 
             default:
                 break;
