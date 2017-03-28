@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "924430146152",
+    "firebase_url": "https://spotify-android-playback-app.firebaseio.com",
+    "project_id": "spotify-android-playback-app",
+    "storage_bucket": "spotify-android-playback-app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:924430146152:android:19628c6323d43aca",
+        "android_client_info": {
+          "package_name": "entertainmentexpert.spotifyplayer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "924430146152-dla1ee9qrk06k73k0kp5pbfsqas5d3jp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "entertainmentexpert.spotifyplayer",
+            "certificate_hash": "92281252700b36c171dcfb318750b0b7df1c7323"
+          }
+        },
+        {
+          "client_id": "924430146152-f5pvkmemhsajesq29it6p8r55e0uho6e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8imgh_bfxbI6s6rM9ukL87mbt9GA_5T0"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "924430146152-f5pvkmemhsajesq29it6p8r55e0uho6e.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -5,16 +5,22 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.spotify.sdk.android.authentication.AuthenticationClient;
 import com.spotify.sdk.android.authentication.AuthenticationRequest;
 import com.spotify.sdk.android.authentication.AuthenticationResponse;
 import com.spotify.sdk.android.player.Config;
 import com.spotify.sdk.android.player.ConnectionStateCallback;
 import com.spotify.sdk.android.player.Error;
+import com.spotify.sdk.android.player.PlaybackBitrate;
 import com.spotify.sdk.android.player.Player;
 import com.spotify.sdk.android.player.PlayerEvent;
 import com.spotify.sdk.android.player.Spotify;
 import com.spotify.sdk.android.player.SpotifyPlayer;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.Collections;
 import java.util.List;
@@ -43,22 +49,24 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
     private String userId = "pespotify1";
     private boolean IsFirstTrack;
     private List<PlaylistTrack> list;
+    private PlaybackBitrate bitRate = PlaybackBitrate.BITRATE_HIGH;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
+        FirebaseMessaging.getInstance().subscribeToTopic("Playlist");
         AuthenticationRequest.Builder builder = new AuthenticationRequest.Builder(CLIENT_ID,
                 AuthenticationResponse.Type.TOKEN,
                 REDIRECT_URI);
         builder.setScopes(new String[]{"user-read-private", "streaming"});
+        builder.setShowDialog(true);
         AuthenticationRequest request = builder.build();
 
         AuthenticationClient.openLoginActivity(this, REQUEST_CODE, request);
-
     }
+
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
@@ -78,39 +86,34 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        EventBus.getDefault().register(this);
+    }
 
-    private void Play(PlaylistSimple playlist) {
+    @Override
+    public void onStop() {
+        EventBus.getDefault().unregister(this);
+        super.onStop();
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onMessageEvent(PlayEvent event) {
+        bitRate = event.bitrate;
+        Play(event.playListId);
+    }
+
+    private void Play(String playlistId) {
         IsFirstTrack = true;
-        //  int count=  playlist.tracks.total;
-        //    mPlayer.playUri(null, playlist.uri, 0, 0);
-        //     mPlayer.setRepeat(null, true);
-        //    mPlayer.setShuffle(null, true);
-        // mPlayer.skipToNext(null);
-
-
-        webService.getPlaylistTracks(userId, playlist.id, new Callback<Pager<PlaylistTrack>>() {
+        webService.getPlaylistTracks(userId, playlistId, new Callback<Pager<PlaylistTrack>>() {
             @Override
             public void success(Pager<PlaylistTrack> playlistTrackPager, Response response) {
                 list = playlistTrackPager.items;
                 Collections.shuffle(list);
-
                 mPlayer.playUri(null, list.get(0).track.uri, 0, 0);
+                mPlayer.setPlaybackBitrate(null, bitRate);
                 list.remove(0);
-                /*
-                int count = 0;
-                for (PlaylistTrack track : list) {
-                    if (count == 0) {
-                        mPlayer.playUri(null, track.track.uri, 0, 0);
-
-                    } else {
-                        mPlayer.queue(null, track.track.uri);
-                        mPlayer.setPlaybackBitrate(null, PlaybackBitrate.BITRATE_HIGH);
-                    }
-                    count++;
-                    Log.d("track", "");
-
-                }
-*/
             }
 
             @Override
@@ -121,7 +124,6 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
 
     }
-
 
     private void getUserInfo(SpotifyService service) {
         service.getUser(userId, new Callback<UserPublic>() {
@@ -149,7 +151,7 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
             @Override
             public void success(Pager<PlaylistSimple> playlistSimplePager, Response response) {
                 playList = playlistSimplePager.items;
-                Play(playList.get(0));
+                Play(playList.get(0).id);
             }
         });
 
@@ -193,16 +195,11 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
         switch (playerEvent) {
             case kSpPlaybackNotifyAudioDeliveryDone:
-                // if (!IsFirstTrack && !mPlayer.getPlaybackState().isPlaying) {
                 if (list.size() > 0) {
                     mPlayer.playUri(null, list.get(0).track.uri, 0, 0);
 
                     list.remove(0);
                 }
-                //    }else {
-                //      IsFirstTrack = false;
-                //    }
-
             default:
                 break;
         }
