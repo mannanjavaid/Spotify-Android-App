@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="entertainmentexpert.spotifyplayer" >
-    <uses-permission android:name="android.permission.INTERNET"/>
+    package="entertainmentexpert.spotifyplayer">
+
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:allowBackup="true"
+        android:configChanges="orientation"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:screenOrientation="portrait"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme" >
-        <activity android:name=".MainActivity" >
+        android:theme="@style/AppTheme"
+
+        >
+        <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -17,12 +22,16 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".AdminActivity"></activity>
+
+        <activity android:name=".RequestActivity"></activity>
+
         <!-- Needed for LoginActivity to work -->
         <activity
             android:name="com.spotify.sdk.android.authentication.LoginActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-        <!-- Needed for  receive message on forground app -->
+        <!-- Needed for  receive messageModel on forground app -->
         <service android:name=".MyFirebaseMessagingService">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

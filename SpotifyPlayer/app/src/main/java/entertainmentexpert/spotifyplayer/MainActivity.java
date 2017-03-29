@@ -1,9 +1,15 @@
 package entertainmentexpert.spotifyplayer;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.widget.Toast;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.spotify.sdk.android.authentication.AuthenticationClient;
@@ -22,7 +28,9 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import kaaes.spotify.webapi.android.SpotifyApi;
@@ -36,54 +44,154 @@ import kaaes.spotify.webapi.android.models.UserPublic;
 import retrofit.Callback;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
+import retrofit2.Call;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity implements SpotifyPlayer.NotificationCallback, ConnectionStateCallback {
 
     private static final String CLIENT_ID = "617b892859ab4b148161cf0e5335b74e";
+    private static final String CLIENT_SECRET = "723d0942ecdf47d6b910e945e74e46e0";
     private static final String REDIRECT_URI = "entertainmentexpert.spotifyplayer://callback";
-    private static final int REQUEST_CODE = 1337;
+    private static final int SPOTIFY_REQUEST_CODE = 1337;
+    private static final int LOGIN_REQUEST_CODE = 1;
+    private static final int ADMIN_REQUEST_CODE = 2;
     private List<PlaylistSimple> playList;
     private Player mPlayer;
     private UserPublic user;
     private SpotifyService webService;
     private String userId = "pespotify1";
-    private boolean IsFirstTrack;
     private List<PlaylistTrack> list;
     private PlaybackBitrate bitRate = PlaybackBitrate.BITRATE_HIGH;
+    private String AccessCode;
+    private String AccessToken;
+    private String RefreshToken;
+    private SpotifyTokenService tokenService;
+    private Date expireTime;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         FirebaseMessaging.getInstance().subscribeToTopic("Playlist");
         AuthenticationRequest.Builder builder = new AuthenticationRequest.Builder(CLIENT_ID,
-                AuthenticationResponse.Type.TOKEN,
+                AuthenticationResponse.Type.CODE,
                 REDIRECT_URI);
         builder.setScopes(new String[]{"user-read-private", "streaming"});
         builder.setShowDialog(true);
         AuthenticationRequest request = builder.build();
-
-        AuthenticationClient.openLoginActivity(this, REQUEST_CODE, request);
+        AuthenticationClient.openLoginActivity(this, SPOTIFY_REQUEST_CODE, request);
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.option, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        switch (item.getItemId()) {
+            case R.id.admin:
+                startActivityForResult(new Intent(this, AdminActivity.class), LOGIN_REQUEST_CODE);
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
         super.onActivityResult(requestCode, resultCode, intent);
+        switch (requestCode) {
+            case SPOTIFY_REQUEST_CODE:
+                AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, intent);
+                if (response.getType() == AuthenticationResponse.Type.CODE) {
+                    AccessCode = response.getCode();
+                    Retrofit retrofit = new Retrofit.Builder()
+                            .baseUrl("https://accounts.spotify.com/").addConverterFactory(GsonConverterFactory.create())
+                            .build();
 
-        // Check if result comes from the correct activity
-        if (requestCode == REQUEST_CODE) {
-            AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, intent);
-            if (response.getType() == AuthenticationResponse.Type.TOKEN) {
-                CreatePlayer(response.getAccessToken());
+                    tokenService = retrofit.create(SpotifyTokenService.class);
+                    GetAccessToken();
+
+                }
+                break;
+
+            case LOGIN_REQUEST_CODE:
+                if (resultCode == Activity.RESULT_OK) {
+                    Intent i = new Intent(this, RequestActivity.class);
+                    i.putExtra("accessToken", AccessToken);
+                    startActivityForResult(i, ADMIN_REQUEST_CODE);
+                }
+                break;
+
+            case ADMIN_REQUEST_CODE:
+                if (resultCode == Activity.RESULT_OK) {
+                    Toast.makeText(this, "Request is Sent.", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "Request is not Sent.", Toast.LENGTH_SHORT).show();
+                }
+                break;
+
+        }
+
+    }
+
+    private void GetAccessToken() {
+        Call<TokenResponceModel> call = tokenService.getRefreshToken(AccessCode, "authorization_code", REDIRECT_URI, CLIENT_ID, CLIENT_SECRET);
+        call.enqueue(new retrofit2.Callback<TokenResponceModel>() {
+            @Override
+            public void onResponse(Call<TokenResponceModel> call, retrofit2.Response<TokenResponceModel> response) {
+
+                RefreshToken = response.body().getRefreshToken();
+                AccessToken = response.body().getAccessToken();
+                int expireIn = response.body().getExpiresIn();
+                Calendar calendar = Calendar.getInstance();
+                calendar.add(Calendar.SECOND, expireIn - 1000);
+                expireTime = calendar.getTime();
                 SpotifyApi api = new SpotifyApi();
-                api.setAccessToken(response.getAccessToken());
+                api.setAccessToken(AccessToken);
+                webService = api.getService();
+                CreatePlayer(AccessToken);
+            }
+
+            @Override
+            public void onFailure(Call<TokenResponceModel> call, Throwable t) {
+
+            }
+        });
+    }
+
+    private void RefreshAccessToken() {
+
+        Call<RefreshTokenResponceModel> call = tokenService.getAccessTokenFromRefreshToken(RefreshToken, "refresh_token", CLIENT_ID, CLIENT_SECRET);
+        call.enqueue(new retrofit2.Callback<RefreshTokenResponceModel>() {
+            @Override
+            public void onResponse(Call<RefreshTokenResponceModel> call, retrofit2.Response<RefreshTokenResponceModel> response) {
+
+                AccessToken = response.body().getAccessToken();
+                int expireIn = response.body().getExpiresIn();
+                Calendar calendar = Calendar.getInstance();
+                calendar.add(Calendar.SECOND, expireIn - 1000);
+                expireTime = calendar.getTime();
+                SpotifyApi api = new SpotifyApi();
+                api.setAccessToken(AccessToken);
                 webService = api.getService();
 
             }
-        }
 
+            @Override
+            public void onFailure(Call<RefreshTokenResponceModel> call, Throwable t) {
+
+            }
+        });
     }
 
     @Override
@@ -105,7 +213,6 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
     }
 
     private void Play(String playlistId) {
-        IsFirstTrack = true;
         webService.getPlaylistTracks(userId, playlistId, new Callback<Pager<PlaylistTrack>>() {
             @Override
             public void success(Pager<PlaylistTrack> playlistTrackPager, Response response) {
