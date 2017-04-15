@@ -16,6 +16,30 @@ public class Data {
     @Expose
     private String quality;
 
+    @SerializedName("StartTime")
+    @Expose
+    private String startTime;
+
+    @SerializedName("StopTime")
+    @Expose
+    private String stopTime;
+
+    public String getStopTime() {
+        return stopTime;
+    }
+
+    public void setStopTime(String stopTime) {
+        this.stopTime = stopTime;
+    }
+
+    public String getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(String startTime) {
+        this.startTime = startTime;
+    }
+
     public String getPlayList() {
         return playList;
     }

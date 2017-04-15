@@ -1,7 +1,11 @@
 package entertainmentexpert.spotifyplayer;
 
 import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -9,9 +13,11 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.koushikdutta.ion.Ion;
 import com.spotify.sdk.android.authentication.AuthenticationClient;
 import com.spotify.sdk.android.authentication.AuthenticationRequest;
 import com.spotify.sdk.android.authentication.AuthenticationResponse;
@@ -68,19 +74,41 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
     private String RefreshToken;
     private SpotifyTokenService tokenService;
     private Date expireTime;
-
+    private ImageView imageView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        Intent i = getIntent();
+        if (i != null) {
+
+            Bundle b = i.getExtras();
+            if (b != null) {
+                boolean isAlarm = b.getBoolean("Alarm");
+                if (!isAlarm) {
+                    this.finish();
+                    System.exit(0);
+
+                }
+
+            }
+
+        }
+
+        imageView = (ImageView) findViewById(R.id.imageView2);
+        SharedPreferences sharedpreferences = getSharedPreferences("Pref", Context.MODE_PRIVATE);
+        String imageUrl = sharedpreferences.getString("Image", "");
+        Ion.with(imageView).load(imageUrl);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        MyFirebaseInstanceIDService fb = new MyFirebaseInstanceIDService();
+        fb.getToken();
         FirebaseMessaging.getInstance().subscribeToTopic("Playlist");
         AuthenticationRequest.Builder builder = new AuthenticationRequest.Builder(CLIENT_ID,
                 AuthenticationResponse.Type.CODE,
                 REDIRECT_URI);
         builder.setScopes(new String[]{"user-read-private", "streaming"});
-        builder.setShowDialog(true);
+        builder.setShowDialog(false);
         AuthenticationRequest request = builder.build();
         AuthenticationClient.openLoginActivity(this, SPOTIFY_REQUEST_CODE, request);
     }
@@ -98,6 +126,7 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
         switch (item.getItemId()) {
             case R.id.admin:
+
                 startActivityForResult(new Intent(this, AdminActivity.class), LOGIN_REQUEST_CODE);
                 return true;
             default:
@@ -135,6 +164,15 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
             case ADMIN_REQUEST_CODE:
                 if (resultCode == Activity.RESULT_OK) {
                     Toast.makeText(this, "Request is Sent.", Toast.LENGTH_SHORT).show();
+                } else if (resultCode == -11) {
+
+                    Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show();
+                } else if (resultCode == -111) {
+
+                    SharedPreferences sharedpreferences = getSharedPreferences("Pref", Context.MODE_PRIVATE);
+                    String imageUrl = sharedpreferences.getString("Image", "");
+                    Ion.with(imageView).load(imageUrl);
+
                 } else {
                     Toast.makeText(this, "Request is not Sent.", Toast.LENGTH_SHORT).show();
                 }
@@ -208,6 +246,30 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onMessageEvent(PlayEvent event) {
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(System.currentTimeMillis());
+        calendar.set(Calendar.HOUR_OF_DAY, Integer.parseInt(event.startTimeHour));
+        calendar.set(Calendar.MINUTE, Integer.parseInt(event.startTimeMinute));
+        long startTime = calendar.getTimeInMillis();
+
+        calendar.setTimeInMillis(System.currentTimeMillis());
+        calendar.set(Calendar.HOUR_OF_DAY, Integer.parseInt(event.stopTimeHour));
+        calendar.set(Calendar.MINUTE, Integer.parseInt(event.stopTimeMinutes));
+        long stopTime = calendar.getTimeInMillis();
+        Intent startIntent = new Intent(this, MyBroadcastReceiver.class);
+        startIntent.putExtra("Type", "Start");
+        PendingIntent startPendingIntent = PendingIntent.getBroadcast(this, 123456789, startIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+        AlarmManager alarmManager = (AlarmManager) this.getSystemService(Context.ALARM_SERVICE);
+        alarmManager.cancel(startPendingIntent);
+        alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, startTime, AlarmManager.INTERVAL_DAY, startPendingIntent);
+
+        Intent stopIntent = new Intent(this, MyBroadcastReceiver.class);
+        stopIntent.putExtra("Type", "Stop");
+        PendingIntent stopPendingIntent = PendingIntent.getBroadcast(this, 987654321, stopIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+        alarmManager.cancel(stopPendingIntent);
+        alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, stopTime, AlarmManager.INTERVAL_DAY, stopPendingIntent);
+
         bitRate = event.bitrate;
         Play(event.playListId);
     }
@@ -337,5 +399,12 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
                 Log.e("MainActivity", "Could not initialize player: " + throwable.getMessage());
             }
         });
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+
+
     }
 }

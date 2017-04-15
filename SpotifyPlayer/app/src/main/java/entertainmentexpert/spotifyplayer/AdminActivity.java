@@ -16,9 +16,11 @@ import android.widget.Toast;
 
 public class AdminActivity extends AppCompatActivity {
 
-    private String USER_NAME = "1";
-    private String PASSWORD = "1";
+    private String USER_NAME = "admin";
+    private String PASSWORD = "partyex450";
 
+    /*    private String USER_NAME = "1";
+        private String PASSWORD = "1";*/
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

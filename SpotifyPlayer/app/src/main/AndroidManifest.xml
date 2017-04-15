@@ -3,6 +3,7 @@
     package="entertainmentexpert.spotifyplayer">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <application
         android:allowBackup="true"
         android:configChanges="orientation"
@@ -44,7 +45,10 @@
                 <action android:name="com.google.firebase.INSTANCE_ID_EVENT" />
             </intent-filter>
         </service>
+        <receiver android:name=".MyBroadcastReceiver">
 
+
+        </receiver>
 
     </application>
 

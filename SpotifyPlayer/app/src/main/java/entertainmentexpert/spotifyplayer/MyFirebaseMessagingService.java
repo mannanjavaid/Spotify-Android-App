@@ -20,8 +20,12 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             Map<String, String> dataMap = remoteMessage.getData();
             String playlist = dataMap.containsKey("playList") ? dataMap.get("playList") : null;
             String quality = dataMap.containsKey("quality") ? dataMap.get("quality") : null;
+
+            String startTime = dataMap.containsKey("StartTime") ? dataMap.get("StartTime") : null;
+            String stopTime = dataMap.containsKey("StopTime") ? dataMap.get("StopTime") : null;
             PlaybackBitrate bitRate = PlaybackBitrate.valueOf(quality);
-            EventBus.getDefault().post(new PlayEvent(playlist, bitRate));
+
+            EventBus.getDefault().post(new PlayEvent(playlist, bitRate, startTime, stopTime));
         }
 
     }
