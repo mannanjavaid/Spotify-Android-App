@@ -81,19 +81,14 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Intent i = getIntent();
-        if (i != null) {
+        Bundle bundle = i.getExtras();
+        if (bundle != null) {
+            if (!bundle.getBoolean("Alarm")) {
+                Log.d("Alarm to stop", "alaram stop in main activity");
 
-            Bundle b = i.getExtras();
-            if (b != null) {
-                boolean isAlarm = b.getBoolean("Alarm");
-                if (!isAlarm) {
-                    this.finish();
-                    System.exit(0);
-
-                }
-
+                finish();
+                return;
             }
-
         }
 
         imageView = (ImageView) findViewById(R.id.imageView2);
@@ -261,13 +256,11 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
         startIntent.putExtra("Type", "Start");
         PendingIntent startPendingIntent = PendingIntent.getBroadcast(this, 123456789, startIntent, PendingIntent.FLAG_CANCEL_CURRENT);
         AlarmManager alarmManager = (AlarmManager) this.getSystemService(Context.ALARM_SERVICE);
-        alarmManager.cancel(startPendingIntent);
         alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, startTime, AlarmManager.INTERVAL_DAY, startPendingIntent);
 
         Intent stopIntent = new Intent(this, MyBroadcastReceiver.class);
         stopIntent.putExtra("Type", "Stop");
         PendingIntent stopPendingIntent = PendingIntent.getBroadcast(this, 987654321, stopIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-        alarmManager.cancel(stopPendingIntent);
         alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, stopTime, AlarmManager.INTERVAL_DAY, stopPendingIntent);
 
         bitRate = event.bitrate;
@@ -354,8 +347,12 @@ public class MainActivity extends AppCompatActivity implements SpotifyPlayer.Not
 
     @Override
     protected void onDestroy() {
+        Log.d("On destroy", "On destroy in main");
         Spotify.destroyPlayer(this);
         super.onDestroy();
+        System.exit(0);
+
+
     }
 
     @Override
